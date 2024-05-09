@@ -74,13 +74,15 @@ void CPUAlgorithms::printOriginalProcess(vector<Processes> &arr)
   {
     cout << arr[i].getPid() << " " << arr[i].getArrivalTime() << " " << arr[i].getBurstTime() <<" " << arr[i].getPriority() << endl;
   }
+  cout <<"\n";
+
 
 }
 
-void CPUAlgorithms::printAvgWait(vector<Processes> &arr)
+void CPUAlgorithms::printAvgWait(vector<Processes> &arr, int numOfProcesses)
 {
 
-  double output = static_cast<double>(sumWaitTime(arr))/arr.size();
+  double output = static_cast<double>(sumWaitTime(arr))/numOfProcesses;
   cout<<"Average waiting time: " << output <<endl;
 }
 
@@ -97,12 +99,32 @@ int CPUAlgorithms::sumWaitTime(vector<Processes> &arr)
   int totalWaitTime =0;
   int prevPid = 0;
   
+  //hashmap to see if item appeared or not. allows to get difference in wait time of same process
+  unordered_map<int,int> pidCounts;
+
   for(int i=0; i < arr.size(); i++)
   {
     //we want to count waittime for everytime a process does not show up sequentially
     if(arr[i].getPid() != prevPid)
     {
-      totalWaitTime += arr[i].getWaitTime();
+      //if the process id is not in our hashmap, add it
+      if(pidCounts.find(arr[i].getPid()) == pidCounts.end())
+      {
+        //add the process in our hashmap with the index its located at
+        pidCounts[arr[i].getPid()] = i;
+        totalWaitTime += arr[i].getWaitTime() - arr[i].getArrivalTime();
+      }
+      else
+      {
+        //the processID was previously bursted before (but not i -1). we need to account for difference it has waited specifically
+        //subtract (current wait time) - (for the previous time it bursted, the following process wait time)
+         int waitTimeProcessesAlrBursted = arr[i].getWaitTime() - arr[pidCounts[arr[i].getPid()] +1].getWaitTime();
+         totalWaitTime += waitTimeProcessesAlrBursted;
+
+         //incase it burst again in the future but not sequentially, reconfigure index
+         pidCounts[arr[i].getPid()] = i;
+      }
+
 
       //record previous process id
       prevPid = arr[i].getPid();
@@ -243,6 +265,7 @@ vector<Processes> CPUAlgorithms::roundRobin(vector<Processes>& arr, int quantumT
     output.insert(output.begin() + outputIndex, currentProcess);
     
     output[outputIndex].setWaitTime(currentProcess.getWaitTime());
+    output[outputIndex].setArrivalTime(currentProcess.getArrivalTime());
     output[outputIndex].setPid(currentProcess.getPid());
     
     //increment our index for our output
@@ -267,33 +290,68 @@ Wait time, Process number
 */
 vector<Processes> CPUAlgorithms::SJF(vector<Processes>& arr)
 {
-  //input file in array will be in format:
-  //[Process number, arrival time, CPU burst time, priority]
 
-  //first figure out which job is the shortest(use sorting algorithm) to sort by arrival time
-  std::sort(arr.begin(), arr.end(), Processes::compareBurstTime);
+  //first figure out which job arrives first. Sort by arrival time
+  std::sort(arr.begin(), arr.end(), Processes::compareArrivalTime);
 
   //create output vector of processes that is same size of input array
   vector<Processes> output(arr.size());
 
-  int waitTime =0;
-  //instantiate with leading processes
-  for (int i =0; i < arr.size();i++)
-  {
-    //output in the 1st column will have process number
-    output[i].setPid(arr[i].getPid());
+  //Priority Queue: NEED to declare it like this. if you pass in the static function in the parameter, it will give an error
+  auto comp = Processes::compareBurstTime; 
+  //this creates a min heap of processes by burst time
+  priority_queue<Processes, vector<Processes>, decltype(comp)> priorityQueue(comp);
 
 
-    //the first processes doesnt wait, so we can skip
-    if(i !=0)
+  //need to add all priorities that have arrived in our queue
+
+  //for loop to add process to our queue
+  int i =0;
+  int timer = 0;
+  int outputIndex =0;
+
+
+    //add all processes in ready queue if the arrival time is less than timer
+    if(priorityQueue.size() < arr.size())
     {
-      //our output will have the waiting time in the 0th column
-      //the waiting time is given by sum of previous burst time plus the time the previous one waited
-      waitTime += (arr[i-1].getBurstTime());
-      output[i].setWaitTime(waitTime);
+      while(arr[i].getArrivalTime() <= timer)
+      {
+        priorityQueue.push(arr[i]);
+        i++;
+      }
+    }
+    while(!priorityQueue.empty())
+    {
+      //pop the top of the priority queue
+      Processes currentProcess = priorityQueue.top();
+      priorityQueue.pop();
+
+      //save info to our output
+      output[outputIndex].setPid(currentProcess.getPid());
+      output[outputIndex].setArrivalTime(currentProcess.getArrivalTime());
+      output[outputIndex].setWaitTime(timer);
+
+      //increment out timer
+      timer += currentProcess.getBurstTime();
+
+      //change resulting burst time
+      currentProcess.setBurstTime(0);
+
+
+      //time changed, add any processes that have arrived
+      if(priorityQueue.size() < arr.size())
+      {
+        while(arr[i].getArrivalTime() <= timer)
+        {
+          priorityQueue.push(arr[i]);
+          cout << "test" <<  arr[i].getPid() << endl;
+          i++;
+        }
+      }
+      outputIndex++;
     }
     
-  }
+  
   return output;
 }
 
@@ -358,6 +416,7 @@ vector<Processes> CPUAlgorithms::PR_noPREMP(vector<Processes>& arr)
       //set wait time for our output
       output[outputIndex].setWaitTime(currentProcess.getWaitTime());
       output[outputIndex].setPid(currentProcess.getPid());
+      output[outputIndex].setArrivalTime(currentProcess.getArrivalTime());
       //increment timer by burst time
       timer += currentProcess.getBurstTime();
 
@@ -412,6 +471,7 @@ vector<Processes> CPUAlgorithms::PR_withPREMP(vector<Processes>& arr)
     int outputIndex =0;
     int prevPid = -1;
 
+    //add each process into our priority queue if it has arrived
     for(processed; processed < arr.size();processed++)
     {
       if(arr[processed].getArrivalTime() <= timer)
@@ -439,6 +499,7 @@ vector<Processes> CPUAlgorithms::PR_withPREMP(vector<Processes>& arr)
         currentProcess.setWaitTime(timer);
         output[outputIndex].setWaitTime(currentProcess.getWaitTime());
         output[outputIndex].setPid(currentProcess.getPid());
+        output[outputIndex].setArrivalTime(currentProcess.getArrivalTime());
 
         //increment outputIndex
         outputIndex++;

@@ -46,9 +46,9 @@ int main(int argc, char*argv[])
     algs.printOriginalProcess(processes);
 
     vector<Processes> output = algs.executeProcess(processes);
-
+    
     algs.printResult(output);
-    algs.printAvgWait(output);
+    algs.printAvgWait(output , processes.size());
 
     return 0;
 }

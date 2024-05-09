@@ -22,7 +22,8 @@ class CPUAlgorithms
     void setTimeQuantum(int time);
     void printResult(vector<Processes> &arr);
     void printOriginalProcess(vector<Processes> &arr);
-    void printAvgWait(vector<Processes> &arr);
+    void printAvgWait(vector<Processes> &arr, int numOfProcesses);
+    
     int sumWaitTime(vector<Processes> &arr);
     vector<Processes> executeProcess(vector<Processes> &arr);
     vector<Processes> roundRobin(vector<Processes>& arr, int quantumTime);

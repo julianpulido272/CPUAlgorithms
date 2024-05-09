@@ -99,7 +99,7 @@ bool Processes::compareArrivalTime(Processes& pro1, Processes& pro2)
 
 bool Processes::compareBurstTime(Processes& pro1, Processes& pro2)
 {
-  return pro1.getBurstTime() < pro2.getBurstTime();
+  return pro1.getBurstTime() > pro2.getBurstTime(); //gets descending order
 }
 
 //returns true if p1 has higher priority(lower number in UNIX)
